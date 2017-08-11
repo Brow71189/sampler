@@ -1,9 +1,10 @@
 import numpy as np
 import ctypes
 import platform
+import scipy.ndimage
 
 class Sampler(object):
-    c_sampler_path = '/home/mittelberger2/git/sampler/sampleUnitCell/sampleUnitCell.so'
+    c_sampler_path = '/home/mittelberger2/git/sampler/ucSamplerViewer/sampleUnitCell.so'
 
     def __init__(self, **kwargs):
         self.base_vec_1 = kwargs.get('base_vec_1', None)
@@ -14,6 +15,8 @@ class Sampler(object):
         self.mask = kwargs.get('mask', None)
         self.average_unitcell = None
         self.average_unitcell_shape = kwargs.get('average_unitcell_shape', None)
+        self.pretty_unitcell = None
+        self.periodic_repeats = kwargs.get('periodic_repeats', None)
         self._c_sampler = None
 
     def calculate_base_from_fft(self, fft_vec_1, fft_vec_2):
@@ -46,20 +49,23 @@ class Sampler(object):
         assert self._c_sampler is not None, 'Sampler not loaded, please call "load_c_sampler" first.'
         assert self.image is not None, 'No image to process'
         assert self.average_unitcell_shape is not None, 'Need to know the shape of the resulting unitcell'
-        if self.mask is None:
-            self.mask = np.ones(self.image.shape)
-        assert self.image.shape == self.mask.shape, 'Image and mask have to have the same shape'
+        mask = self.mask
+        if mask is None:
+            mask = np.ones(self.image.shape, dtype=np.uint8)
+        assert self.image.shape == mask.shape, 'Image and mask have to have the same shape'
 
-
+        flat_image = np.ascontiguousarray(self.image.ravel()).astype(np.int32)
         c_int32_p = ctypes.POINTER(ctypes.c_int32)
-        image_p = self.image.ctypes.data_as(c_int32_p)
+        image_p = flat_image.ctypes.data_as(c_int32_p)
 
+        flat_mask = np.ascontiguousarray(mask.ravel()).astype(np.int8)
         c_uint8_p = ctypes.POINTER(ctypes.c_uint8)
-        mask_p = self.mask.ctypes.data_as(c_uint8_p)
+        mask_p = flat_mask.ctypes.data_as(c_uint8_p)
 
         c_int32_p2 = ctypes.POINTER(ctypes.c_int32)
         self.average_unitcell = np.zeros(tuple(self.average_unitcell_shape), dtype=np.int32)
-        average_uc_p = self.average_unitcell.ctypes.data_as(c_int32_p2)
+        flat_average_unitcell = np.ascontiguousarray(self.average_unitcell.ravel())
+        average_uc_p = flat_average_unitcell.ctypes.data_as(c_int32_p2)
 
         shape_y = ctypes.c_int32()
         shape_y.value = self.image.shape[0]
@@ -94,6 +100,67 @@ class Sampler(object):
         base_vec_2_b = ctypes.c_double()
         base_vec_2_b.value = self.base_vec_2[0]
 
-        return self._c_sampler.sampleUnitCell(c_int32_p(), mask_p, shape_x, shape_y, average_uc_p, uc_shape_x, uc_shape_y,
+        import time
+        starttime = time.time()
+        res =  self._c_sampler.sampleUnitCell(image_p, mask_p, shape_x, shape_y, average_uc_p, uc_shape_x, uc_shape_y,
                                               base_vec_1_a, base_vec_1_b, base_vec_2_a, base_vec_2_b, offset_x, offset_y,
                                               sample_rate)
+        print('Runtime: {:f} s'.format(time.time() - starttime))
+        return res
+
+    def make_pretty_output(self):
+        output_shape = np.array(self.average_unitcell_shape, dtype=np.int) * self.periodic_repeats
+        output_shape = (int(output_shape[0]), int(output_shape[1]))
+
+        c_int32_p2 = ctypes.POINTER(ctypes.c_int32)
+        self.pretty_unitcell = np.zeros(output_shape, dtype=np.int32)
+        flat_pretty_unitcell = np.ascontiguousarray(self.pretty_unitcell.ravel())
+        pretty_uc_p = flat_pretty_unitcell.ctypes.data_as(c_int32_p2)
+
+        uc_shape_x = ctypes.c_int32()
+        uc_shape_x.value = output_shape[1]
+        uc_shape_y = ctypes.c_int32()
+        uc_shape_y.value = output_shape[0]
+
+        sample_rate = ctypes.c_int32()
+        sample_rate.value = self.sample_rate
+
+        zoom = ctypes.c_double()
+        zoom.value = 1.0
+
+        res = self._c_sampler.viewUnitCell(pretty_uc_p, uc_shape_x, uc_shape_y, sample_rate, zoom)
+        if res == -1:
+            raise RuntimeError('You have to run a sampling before displaying the unitcell')
+
+#        angle = np.cos(np.dot(self.base_vec_1,self.base_vec_2)/(np.linalg.norm(self.base_vec_1)*np.linalg.norm(self.base_vec_2)))
+#        aff_mat = np.array(
+#                           [[     1, 0 ],
+#                            [-angle, 1]]
+#                           )
+#        output_shape = np.array(self.average_unitcell_shape, dtype=np.int) * self.periodic_repeats
+#        img = scipy.ndimage.affine_transform(self.average_unitcell, aff_mat,
+#                                             output_shape=(int(output_shape[0]), int(output_shape[1])), mode='wrap')
+#        return img
+
+def calculate_counts(image, threshold=1e-9):
+    """
+    Returns the divisor to translate float values in "image" to actual counts.
+    """
+    #set all values <0 to 0
+    image[image<0] = 0.0
+    #flatten and sort image by pixel values
+    sort_im = np.sort(np.ravel(image))
+    #find "steps" in intensity
+
+    differences = sort_im[1:] - sort_im[0:-1]
+    steps = differences[differences>threshold]
+    #int_steps = []
+
+    min_step = np.amin(steps)
+
+    int_steps = steps[steps<1.5*min_step]
+    counts_divisor = np.mean(int_steps)
+    image[image<0]=0.0
+    image = np.asarray(np.rint(image/counts_divisor), dtype='uint16')
+
+    return image
