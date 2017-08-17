@@ -33,7 +33,7 @@ double scale=1.0;
 double a1x=32.0,a1y=0.0,a2x=0.0,a2y=32.0;
 double offset_XS = 1024.0;
 double offset_YS = 1024.0;
-int32_t num_threads = 4;//actual use
+int32_t num_threads = 1;//actual use
 pthread_t threads[8];//max number of of threads
 int32_t ids[8];
 
@@ -119,7 +119,7 @@ extern "C" int32_t viewUnitCell(
 	return viewuc();
 }
 
-extern "C" int32_t viewMoment(	int32_t order, int32_t *vv)
+extern "C" int32_t viewMoment(	int32_t order, float *vv)
 {
 	if(first_call)
 	{	return -1;}
@@ -136,10 +136,10 @@ extern "C" int32_t viewMoment(	int32_t order, int32_t *vv)
 		switch(order)
 		{
 			case 0:
-				vv[uc_pix]=sum;
+				vv[uc_pix]=(float)sum;
 			break;
 			case 1:
-				vv[uc_pix]=avg;	
+				vv[uc_pix]=(float)avg;	
 			break;
 			default:
 			{	
@@ -149,7 +149,7 @@ extern "C" int32_t viewMoment(	int32_t order, int32_t *vv)
 					if(unitcells[uc_ind] != nullptr)
 					{	sumO += pow(unitcells[uc_ind][uc_pix]-avg,order);}
 				}
-				vv[uc_pix]=pow(sumO,inv_order);
+				vv[uc_pix]=(float)pow(sumO,inv_order);
 			}
 			break;
 		}

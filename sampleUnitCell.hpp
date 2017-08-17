@@ -48,7 +48,7 @@ extern "C" int32_t viewUnitCell(
 //Always refers to the last run of sampling
 extern "C" int32_t viewMoment(							
 						int32_t order,
-						int32_t *vv//1D array						
+						float *vv//1D array						
 );
 
 
