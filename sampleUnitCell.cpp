@@ -149,7 +149,7 @@ extern "C" int32_t viewMoment(	int32_t order, float *vv)
 					if(unitcells[uc_ind] != nullptr)
 					{	sumO += pow(unitcells[uc_ind][uc_pix]-avg,order);}
 				}
-				vv[uc_pix]=(float)pow(sumO,inv_order);
+				vv[uc_pix]=(float)pow(sumO/good_cells,inv_order);
 			}
 			break;
 		}
