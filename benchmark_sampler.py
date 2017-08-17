@@ -10,7 +10,7 @@ import tifffile
 import numpy as np
 import matplotlib.pyplot as plt
 
-sampler.Sampler.c_sampler_path = '/home/mittelberger2/git/sampler/sampleUnitCell.so'
+sampler.Sampler.c_sampler_path = './sampleUnitCell.so'
 sampl = sampler.Sampler()
 sampl.load_c_sampler()
 sampl.image = sampler.calculate_counts(tifffile.imread('Crop_of_SuperScan.tif'))
