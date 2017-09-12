@@ -39,17 +39,18 @@ puc = plt.matshow(sampl.pretty_unitcell)
 num = puc.figure.number
 puc.figure.canvas.set_window_title('Pretty unitcell ({:d})'.format(num))
 
-for i in range(1, 5):
-    sampl.view_moment(i)
-    tifffile.imsave('Moment {:d}'.format(i), getattr(sampl, 'moment_{:d}'.format(i)))
-    mom = plt.matshow(getattr(sampl, 'moment_{:d}'.format(i)))
-    num = mom.figure.number
-    mom.figure.canvas.set_window_title('Moment {:d} ({:d}).tif'.format(i, num))
+#for i in range(1, 5):
+#    sampl.view_moment(i)
+#    tifffile.imsave('Moment {:d}'.format(i), getattr(sampl, 'moment_{:d}'.format(i)))
+#    mom = plt.matshow(getattr(sampl, 'moment_{:d}'.format(i)))
+#    num = mom.figure.number
+#    mom.figure.canvas.set_window_title('Moment {:d} ({:d}).tif'.format(i, num))
 
 sampl.get_median()
+tifffile.imsave('Unitcell_stack.tif', sampl.unitcell_stack.astype(np.uint16))
 tifffile.imsave('Median unitcell.tif', sampl.median_unitcell.astype(np.uint16))
 med = plt.matshow(sampl.median_unitcell)
 num = med.figure.number
 med.figure.canvas.set_window_title('Median unitcell ({:d})'.format(num))
 
-plt.show()
+#plt.show()
