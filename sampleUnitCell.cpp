@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <assert.h>
+#include <stdio.h>
 #include "sampleUnitCell.hpp"
 
 /*Macros*/
@@ -156,6 +157,36 @@ extern "C" int32_t viewMoment(	int32_t order, float *vv)
 	}
 	return good_cells;
 }
+
+
+extern "C" int32_t getUnitCells(int32_t *array1DZYX)
+{
+	int32_t *v(array1DZYX); 
+	if(first_call)
+	{	return -1;}
+	try
+	{
+		for(int32_t pix = 0; pix < uc_area; ++pix)
+		{
+			for(int32_t uc_ind = 0; uc_ind < uc_len; ++uc_ind )
+			{
+				if(unitcells[uc_ind] != nullptr)
+				{
+					*v++=unitcells[uc_ind][pix]; 
+				}
+			}
+		}
+	}
+	catch( ... )
+	{
+		printf("Failed at writing %d of %lu bytes to %p\n", (int32_t)(v-array1DZYX),sizeof(int32_t)*good_cells*uc_area, array1DZYX);
+		fflush(stdout);
+	}
+	return (int32_t)(v-array1DZYX);	
+}
+
+
+
 
 
 void set_uc_spacings(void)

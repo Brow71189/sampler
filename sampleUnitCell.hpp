@@ -51,6 +51,9 @@ extern "C" int32_t viewMoment(
 						float *vv//1D array						
 );
 
+//returns number of successfully written bytes, should be checked 
+extern "C" int32_t getUnitCells(int32_t *array1DZYX);
+
 
 
 
