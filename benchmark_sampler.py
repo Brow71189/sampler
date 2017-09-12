@@ -46,4 +46,10 @@ for i in range(1, 5):
     num = mom.figure.number
     mom.figure.canvas.set_window_title('Moment {:d} ({:d}).tif'.format(i, num))
 
+sampl.get_median()
+tifffile.imsave('Median unitcell.tif', sampl.median_unitcell.astype(np.uint16))
+med = plt.matshow(sampl.median_unitcell)
+num = med.figure.number
+med.figure.canvas.set_window_title('Median unitcell ({:d})'.format(num))
+
 plt.show()
