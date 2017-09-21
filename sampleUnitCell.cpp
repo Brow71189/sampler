@@ -21,9 +21,9 @@
 const int32_t *img = nullptr;
 const uint8_t *mask = nullptr;
 int32_t img_width = 2048, img_height=2048;
-int32_t *uc_sum = nullptr;
+float *uc_sum = nullptr;
 int32_t uc_width = 32, uc_height = 32;
-int32_t *view = nullptr;
+float *view = nullptr;
 int32_t view_width = 256, view_height = 256;
  
 int32_t sample_rate= 8;
@@ -42,6 +42,7 @@ int32_t  **unitcells = nullptr;
 bool *dirty = nullptr;			
 double idet = 1.0;
 bool first_call = true;
+float *tmpfr = nullptr;
 int32_t uc_gridX; 
 int32_t uc_gridY; 
 int32_t uc_rangeX;
@@ -75,7 +76,7 @@ extern "C" int32_t sampleUnitCell(
 						uint8_t *mk,
 						int32_t w,
 						int32_t h,
-						int32_t *ucell,
+						float *ucell,
 						int32_t ucw,
 						int32_t uch,
 						double v1x, double v1y, 
@@ -104,11 +105,12 @@ extern "C" int32_t sampleUnitCell(
 }
 
 extern "C" int32_t viewUnitCell(							
-						int32_t *vv,//1D array
+						float *vv,//1D array
 						int32_t vw,//view_width
 						int32_t vh,//view_height
 						int32_t vs,//sampling for view
-						double vz//zoom for view
+						double vz,//zoom for view
+						int32_t mom
 )
 {
 	view = vv;
@@ -117,6 +119,15 @@ extern "C" int32_t viewUnitCell(
 	view_area = view_width * view_height;
 	uc_sample_rate = vs;
 	view_zoom = vz;
+	if(first_call)
+	{	return -1;}
+	if(tmpfr!=nullptr || sizeof(tmpfr)/sizeof(tmpfr[0]) != uc_area) 
+	{
+		delete[] tmpfr;
+		tmpfr = new float[uc_area];
+		
+	}
+	viewMoment( mom, tmpfr);
 	return viewuc();
 }
 
@@ -127,13 +138,13 @@ extern "C" int32_t viewMoment(	int32_t order, float *vv)
 	const double inv_order = 1.0/order;
 	for(int32_t uc_pix=0; uc_pix < uc_area; ++uc_pix)
 	{
-		int64_t sum = 0.0;
+		double sum = 0.0;
 		for(int32_t uc_ind = 0; uc_ind < uc_len; ++uc_ind)
 		{
 			if(unitcells[uc_ind] != nullptr)
 			{	sum+=unitcells[uc_ind][uc_pix];}
 		}
-		const double avg = ((double)sum/good_cells);
+		const double avg = (sum/good_cells);
 		switch(order)
 		{
 			case 0:
@@ -314,14 +325,14 @@ extern "C" int32_t transsum(void)
 	good_cells = 0;
 	if(uc_sum != nullptr)
 	{
-		memset(uc_sum,0,uc_area*sizeof(int32_t));
+		std::fill_n(uc_sum,uc_area,0.0f);
 		int32_t **uc( unitcells );
 		for(int32_t ind(0); ind < uc_len ; ++ind)
 		{
 			if( *uc != nullptr ) 
 			{
 				++good_cells;
-				int32_t *s( uc_sum );
+				float *s( uc_sum );
 				int32_t *a( *uc );
 				
 				for(int32_t ind0(0); ind0 < uc_area; ++ind0)
@@ -445,12 +456,12 @@ void* run(void* id)
 int32_t stretch(int32_t start, int32_t end)
 {
 	
-	int32_t *fr(view+start);
+	float *fr(view+start);
 	for(int32_t raw_ind = start; raw_ind < end ; ++raw_ind)
 	{
 		const double x( raw_ind % view_width);
 		const double y( raw_ind / view_width);
-		int32_t sum = 0;
+		double sum = 0.0;
 		
 		for(int32_t i=0; i < uc_sample_rate; ++i)
 		{
@@ -459,9 +470,9 @@ int32_t stretch(int32_t start, int32_t end)
 			const double  a1len(  scale * a1d(x + subx,y + suby) );
 			const double  a2len(  scale * a2d(x + subx,y + suby) );
 			const int32_t loc_ind( ind1_a1_a2( a1len, a2len) );	
-			sum += uc_sum[loc_ind];
+			sum += tmpfr[loc_ind];
 		}
-		*(fr++) = sum/uc_sample_rate;			
+		*(fr++) = (float)(sum/uc_sample_rate);			
 	}
 	return view_area;
 }

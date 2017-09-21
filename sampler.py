@@ -43,7 +43,7 @@ class Sampler(object):
 
     @property
     def pretty_unitcell(self):
-        output_shape = np.array(self.average_unitcell_shape, dtype=np.int) * self.periodic_repeats
+        output_shape = np.array(self.average_unitcell_shape, dtype=np.float) * self.periodic_repeats
         output_shape = (int(output_shape[0]), int(output_shape[1]))
         return np.reshape(self._pretty_unitcell, output_shape)
 
@@ -92,9 +92,9 @@ class Sampler(object):
         c_uint8_p = ctypes.POINTER(ctypes.c_uint8)
         mask_p = mask.ctypes.data_as(c_uint8_p)
 
-        c_int32_p2 = ctypes.POINTER(ctypes.c_int32)
-        self.average_unitcell = np.zeros(tuple(self.average_unitcell_shape), dtype=np.int32)
-        average_uc_p = self._average_unitcell.ctypes.data_as(c_int32_p2)
+        c_float_p2 = ctypes.POINTER(ctypes.c_float)
+        self.average_unitcell = np.zeros(tuple(self.average_unitcell_shape), dtype=np.float32)
+        average_uc_p = self._average_unitcell.ctypes.data_as(c_float_p2)
 
         shape_y = ctypes.c_int32()
         shape_y.value = self.image.shape[0]
@@ -137,13 +137,13 @@ class Sampler(object):
         print('Runtime: {:f} s'.format(time.time() - starttime))
         return res
 
-    def make_pretty_output(self):
+    def make_pretty_output(self, order=1):
         output_shape = np.array(self.average_unitcell_shape, dtype=np.int) * self.periodic_repeats
         output_shape = (int(output_shape[0]), int(output_shape[1]))
 
-        c_int32_p = ctypes.POINTER(ctypes.c_int32)
-        self.pretty_unitcell = np.zeros(output_shape, dtype=np.int32)
-        pretty_uc_p = self._pretty_unitcell.ctypes.data_as(c_int32_p)
+        c_float_p = ctypes.POINTER(ctypes.c_float)
+        self.pretty_unitcell = np.zeros(output_shape, dtype=np.float32)
+        pretty_uc_p = self._pretty_unitcell.ctypes.data_as(c_float_p)
 
         uc_shape_x = ctypes.c_int32()
         uc_shape_x.value = output_shape[1]
@@ -155,8 +155,12 @@ class Sampler(object):
 
         zoom = ctypes.c_double()
         zoom.value = 1.0
+        
+        c_order = ctypes.c_int32()
+        c_order.value = order
 
-        res = self._c_sampler.viewUnitCell(pretty_uc_p, uc_shape_x, uc_shape_y, sample_rate, zoom)
+
+        res = self._c_sampler.viewUnitCell(pretty_uc_p, uc_shape_x, uc_shape_y, sample_rate, zoom, c_order)
         if res == -1:
             raise RuntimeError('You have to run a sampling before displaying the unitcell')
 
@@ -170,7 +174,7 @@ class Sampler(object):
 #                                             output_shape=(int(output_shape[0]), int(output_shape[1])), mode='wrap')
 #        return img
 
-    def view_moment(self, order):
+    def view_moment(self, order=1):
 
         if not (hasattr(self, '_moment_{:.0f}'.format(order)) and hasattr(self, 'moment_{:.0f}'.format(order))):
             setattr(self, '_moment_{:.0f}'.format(order), None)
