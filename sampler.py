@@ -19,6 +19,10 @@ class Sampler(object):
         self._pretty_unitcell = None
         self.periodic_repeats = kwargs.get('periodic_repeats', None)
         self._c_sampler = None
+        self.number_unitcells = None
+        self.median_unitcell = None
+        self._unitcell_data = None
+        self.unitcell_stack = None
 
     @property
     def image(self):
@@ -135,6 +139,7 @@ class Sampler(object):
                                               base_vec_1_a, base_vec_1_b, base_vec_2_a, base_vec_2_b, offset_x, offset_y,
                                               sample_rate)
         print('Runtime: {:f} s'.format(time.time() - starttime))
+        self.number_unitcells = res
         return res
 
     def make_pretty_output(self, order=1):
@@ -195,6 +200,20 @@ class Sampler(object):
         if res == -1:
             raise RuntimeError('You have to run a sampling before displaying a moment')
 
+    def get_unitcell_stack(self):
+        assert self.number_unitcells > 0, 'You need at least one successful sampling run before finding mean'
+        c_int32_p = ctypes.POINTER(ctypes.c_int32)
+        self._unitcell_data = np.empty(self.number_unitcells*np.prod(self.average_unitcell_shape), dtype=np.int32)
+        unitcell_data_p = self._unitcell_data.ctypes.data_as(c_int32_p)
+        res = self._c_sampler.getUnitCells(unitcell_data_p)
+        assert res == self.number_unitcells*np.prod(self.average_unitcell_shape), res
+        self.unitcell_stack = self._unitcell_data.reshape(tuple(self.average_unitcell_shape) + (self.number_unitcells,))
+        self.unitcell_stack = np.swapaxes(self.unitcell_stack, 0, 2)
+        self.unitcell_stack = np.swapaxes(self.unitcell_stack, 1, 2)
+
+    def get_median(self):
+        self.get_unitcell_stack()
+        self.median_unitcell = np.median(self.unitcell_stack, axis=0)
 
 def calculate_counts(image, threshold=1e-9):
     """

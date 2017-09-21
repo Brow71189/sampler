@@ -121,7 +121,7 @@ class DoubleGaussianFilterAMOperationDelegate(object):
         def run_button_clicked():
             self.source_data_item = document_controller.target_data_item
             data = self.source_data_item.xdata.data
-            if not data.dtype == np.uint16:
+            if not data.dtype == np.int32:
                 data = sampler.calculate_counts(data)
             self.sampler.image = data
             self.update_calculation()
@@ -288,6 +288,11 @@ class DoubleGaussianFilterAMOperationDelegate(object):
                 self.update_metadata(self.source_data_item, 'sampler.pretty_uuid', pretty_data_item.uuid.hex)
                 self.sampler.make_pretty_output()
                 pretty_data_item.set_data(self.sampler.pretty_unitcell)
+            last_params = {'base_vec_1': list(self.sampler.base_vec_1), 'base_vec_2': list(self.sampler.base_vec_2),
+                           'offset': list(self.sampler.offset),
+                           'average_unitcell_shape': list(self.sampler.average_unitcell_shape),
+                           'sample_rate': self.sampler.sample_rate, 'periodic_repeats': self.sampler.periodic_repeats}
+            self.update_metadata(self.source_data_item, 'sampler.last_parameters', last_params)
 
     def update_metadata(self, data_item, key, value):
         metadata = data_item.metadata

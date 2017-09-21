@@ -81,6 +81,7 @@ tifffile.imsave('intSuperScan.tif', sampl.image.astype(np.uint16))
 
 tifffile.imsave('Average unitcell.tif', sampl.average_unitcell.astype(np.float32))
 
+
 for i in range(0, 3):
     sampl.make_pretty_output(i)
     tifffile.imsave('Pretty_Moment_{:d}'.format(i), sampl.pretty_unitcell.astype(np.float32))
