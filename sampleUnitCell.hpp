@@ -40,7 +40,8 @@ extern "C" int32_t viewUnitCell(
 						int32_t vh,//view_height
 						int32_t vs,//sample rate for viewer
 						double vz, //zoom 
-						int32_t mom //moment 0 .. sum, 1 .. mean, 2 .. std
+						int32_t mom, //moment 0 .. sum, 1 .. mean, 2 .. std
+						bool mirror//mirrors along the diagonals of the unitcell		
 						
 );
 
@@ -49,7 +50,7 @@ extern "C" int32_t viewUnitCell(
 //Always refers to the last run of sampling
 extern "C" int32_t viewMoment(							
 						int32_t order,
-						float *vv//1D array						
+						float *vv//1D array										
 );
 
 //returns number of successfully written bytes, should be checked 
@@ -65,5 +66,6 @@ extern "C" int32_t transsum( void );
 //re - creates the undistorted periodic view with the last seetings
 extern "C" int32_t viewuc( void );
 
+extern "C" double get_offset_X( void );
 
-
+extern "C" double get_offset_Y( void );

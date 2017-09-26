@@ -42,6 +42,7 @@ int32_t  **unitcells = nullptr;
 bool *dirty = nullptr;			
 double idet = 1.0;
 bool first_call = true;
+bool mirrors = true;
 float *tmpfr = nullptr;
 int32_t uc_gridX; 
 int32_t uc_gridY; 
@@ -68,6 +69,14 @@ int32_t stretch(int32_t start, int32_t end);
 void init_xorshift1024star(void);
 double rand_d(void);
 void* run(void*);
+
+/*trivial getters*/
+
+extern "C" double get_offset_X( void )
+{	return offset_XS;}
+
+extern "C" double get_offset_Y( void )
+{	return offset_YS;}
 
 /*implementations*/
 
@@ -96,7 +105,6 @@ extern "C" int32_t sampleUnitCell(
 	offset_XS = orx;
 	offset_YS = ory;	
 	sample_rate = srate;
-	
 	uc_area = uc_width*uc_height;
 	img_area = img_width * img_height;
 	
@@ -110,8 +118,9 @@ extern "C" int32_t viewUnitCell(
 						int32_t vh,//view_height
 						int32_t vs,//sampling for view
 						double vz,//zoom for view
-						int32_t mom
-)
+						int32_t mom,
+						bool mirror
+					)
 {
 	view = vv;
 	view_width = vw;
@@ -121,10 +130,12 @@ extern "C" int32_t viewUnitCell(
 	view_zoom = vz;
 	if(first_call)
 	{	return -1;}
+	mirrors = mirror;
 	if(tmpfr!=nullptr || sizeof(tmpfr)/sizeof(tmpfr[0]) != uc_area) 
 	{
 		delete[] tmpfr;
 		tmpfr = new float[uc_area];
+		std::fill_n(tmpfr,uc_area,0.0f);
 		
 	}
 	viewMoment( mom, tmpfr);
@@ -135,7 +146,7 @@ extern "C" int32_t viewMoment(	int32_t order, float *vv)
 {
 	if(first_call)
 	{	return -1;}
-	const double inv_order = 1.0/order;
+	const double inv_order( order!=0?1.0/order:1 );
 	for(int32_t uc_pix=0; uc_pix < uc_area; ++uc_pix)
 	{
 		double sum = 0.0;
@@ -145,13 +156,14 @@ extern "C" int32_t viewMoment(	int32_t order, float *vv)
 			{	sum+=unitcells[uc_ind][uc_pix];}
 		}
 		const double avg = (sum/good_cells);
+		
 		switch(order)
 		{
 			case 0:
 				vv[uc_pix]=(float)sum;
 			break;
 			case 1:
-				vv[uc_pix]=(float)avg;	
+				vv[uc_pix]=(float)avg;
 			break;
 			default:
 			{	
@@ -160,6 +172,7 @@ extern "C" int32_t viewMoment(	int32_t order, float *vv)
 				{
 					if(unitcells[uc_ind] != nullptr)
 					{	sumO += pow(unitcells[uc_ind][uc_pix]-avg,order);}
+					
 				}
 				vv[uc_pix]=(float)pow(sumO/good_cells,inv_order);
 			}
@@ -216,6 +229,20 @@ void set_uc_spacings(void)
 void init_sampling(void)
 {
 	
+	const double a1len(  floor(a1d(img_width/2-offset_XS,img_height/2-offset_YS)) );
+	const double a2len(  floor(a2d(img_width/2-offset_XS,img_height/2-offset_YS)) );
+	const double noffx ( xd_a(a1len,a2len) );
+	const double noffy ( yd_a(a1len,a2len) );
+	
+	if(a1len != 0.0 || a2len != 0.0)
+	{
+		printf("a1len: %lf\ta2len: %lf\n",a1len,a2len );
+		printf("external offsets: (%lf,%lf)\n",offset_XS,offset_YS);
+		offset_XS += noffx;
+		offset_YS += noffy;
+		printf("new internal offsets: (%lf,%lf)\n",offset_XS,offset_YS);
+		fflush(stdout);
+	}
 	
 	if( unitcells != nullptr )
 	{
@@ -455,24 +482,33 @@ void* run(void* id)
 
 int32_t stretch(int32_t start, int32_t end)
 {
-	
 	float *fr(view+start);
+	const bool mir(mirrors);//local const for looping
 	for(int32_t raw_ind = start; raw_ind < end ; ++raw_ind)
 	{
 		const double x( raw_ind % view_width);
 		const double y( raw_ind / view_width);
 		double sum = 0.0;
-		
 		for(int32_t i=0; i < uc_sample_rate; ++i)
 		{
 			const double subx( rand_d() );
 			const double suby( rand_d() ); 
 			const double  a1len(  scale * a1d(x + subx,y + suby) );
 			const double  a2len(  scale * a2d(x + subx,y + suby) );
-			const int32_t loc_ind( ind1_a1_a2( a1len, a2len) );	
-			sum += tmpfr[loc_ind];
+			const int32_t loc_ind1( ind1_a1_a2( a1len, a2len) );	
+			sum += tmpfr[loc_ind1];
+			if(mir)
+			{
+				const int32_t loc_ind2( ind1_a1_a2( -a1len, -a2len) );	
+				sum += tmpfr[loc_ind2];
+				const int32_t loc_ind3( ind1_a1_a2( a2len, a1len) );	
+				sum += tmpfr[loc_ind3];
+				const int32_t loc_ind4( ind1_a1_a2( -a2len, -a1len) );	
+				sum += tmpfr[loc_ind4];
+			}
+			
 		}
-		*(fr++) = (float)(sum/uc_sample_rate);			
+		*(fr++) = (float)(sum/((mir?4:1)*uc_sample_rate));			
 	}
 	return view_area;
 }

@@ -47,8 +47,9 @@ class Sampler(object):
 
     @property
     def pretty_unitcell(self):
-        output_shape = np.array(self.average_unitcell_shape, dtype=np.float) * self.periodic_repeats
-        output_shape = (int(output_shape[0]), int(output_shape[1]))
+        #output_shape = np.array(self.average_unitcell_shape, dtype=np.float) * self.periodic_repeats
+        #output_shape = (int(output_shape[0]), int(output_shape[1]))
+        output_shape = np.array((256,256),int)        
         return np.reshape(self._pretty_unitcell, output_shape)
 
     @pretty_unitcell.setter
@@ -142,10 +143,10 @@ class Sampler(object):
         self.number_unitcells = res
         return res
 
-    def make_pretty_output(self, order=1):
-        output_shape = np.array(self.average_unitcell_shape, dtype=np.int) * self.periodic_repeats
-        output_shape = (int(output_shape[0]), int(output_shape[1]))
-
+    def make_pretty_output(self, order, sym):
+        output_shape = np.array((256,256),int)
+        #enforce boolean
+        sym = bool(sym)
         c_float_p = ctypes.POINTER(ctypes.c_float)
         self.pretty_unitcell = np.zeros(output_shape, dtype=np.float32)
         pretty_uc_p = self._pretty_unitcell.ctypes.data_as(c_float_p)
@@ -159,13 +160,15 @@ class Sampler(object):
         sample_rate.value = self.sample_rate
 
         zoom = ctypes.c_double()
-        zoom.value = 1.0
+        zoom.value = 2.0
         
         c_order = ctypes.c_int32()
         c_order.value = order
+        
+        mirrors = ctypes.c_bool()
+        mirrors.value = sym
 
-
-        res = self._c_sampler.viewUnitCell(pretty_uc_p, uc_shape_x, uc_shape_y, sample_rate, zoom, c_order)
+        res = self._c_sampler.viewUnitCell(pretty_uc_p, uc_shape_x, uc_shape_y, sample_rate, zoom, c_order, mirrors)
         if res == -1:
             raise RuntimeError('You have to run a sampling before displaying the unitcell')
 
@@ -214,6 +217,13 @@ class Sampler(object):
     def get_median(self):
         self.get_unitcell_stack()
         self.median_unitcell = np.median(self.unitcell_stack, axis=0)
+        
+    def get_internal_offset(self):
+        self._c_sampler.get_offset_X.restype = ctypes.c_double
+        coffX = self._c_sampler.get_offset_X()
+        self._c_sampler.get_offset_Y.restype = ctypes.c_double
+        coffY = self._c_sampler.get_offset_Y()
+        return (coffX, coffY)
 
 def calculate_counts(image, threshold=1e-9):
     """
